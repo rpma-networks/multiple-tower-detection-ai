@@ -111,26 +111,112 @@ def normalize_class_name(name):
     """Normalize class names for consistent presentation without changing model logic."""
     if not isinstance(name, str):
         return name
-    cleaned = ' '.join(name.split())  # collapse whitespace
-    # Title-case common types but keep known acronyms
+    
+    # First, strip leading/trailing whitespace and collapse multiple spaces
+    cleaned = ' '.join(name.strip().split())
+    
+    # Handle underscores (replace with spaces)
+    cleaned = cleaned.replace('_', ' ')
+    cleaned = ' '.join(cleaned.split())  # Collapse spaces again
+    
+    # Handle special cases with dashes and spaces
+    # Normalize "antenna - Damaged" to "Antenna - Damaged" etc.
+    if ' - ' in cleaned:
+        parts = cleaned.split(' - ')
+        cleaned = ' - '.join(part.strip() for part in parts)
+    
+    # Handle hyphenated words (like "surface-damage")
+    if '-' in cleaned and ' - ' not in cleaned:
+        # Replace single hyphens with spaces for better formatting
+        cleaned = cleaned.replace('-', ' ')
+        cleaned = ' '.join(cleaned.split())
+    
+    # Convert to lowercase first for consistent processing
+    cleaned_lower = cleaned.lower()
+    
+    # Title-case but preserve acronyms and special formatting
     normalized = cleaned.title()
-    normalized = normalized.replace('Gsm', 'GSM')
-    # Specific trims
-    replacements = {
-        'Microwave Antenna': 'Microwave Antenna',
-        'Panel Antenna': 'Panel Antenna',
-        'Dirty Antenna': 'Dirty Antenna',
-        'Dirty Equipment': 'Dirty Equipment',
-        'Rusty Mounts And Bolts': 'Rusty Mounts and Bolts',
-        'Rusty Bolts': 'Rusty Bolts',
-        'Rusty Rod And Bolts': 'Rusty Rod and Bolts',
-        'Solar Panel': 'Solar Panel',
-        'Mobile Tower': 'Mobile Tower',
-        'Small Tower': 'Small Tower',
-        'Tower Base': 'Tower Base',
-        'Bts': 'BTS',
+    
+    # Preserve known acronyms (uppercase) - check in original cleaned string
+    acronyms = ['GSM', 'BTS', 'LT', 'RRU']
+    for acronym in acronyms:
+        # Replace case-insensitive - simple approach
+        normalized_lower = normalized.lower()
+        acronym_lower = acronym.lower()
+        if acronym_lower in normalized_lower:
+            # Find and replace preserving word boundaries
+            words = normalized.split()
+            for i, word in enumerate(words):
+                if word.lower() == acronym_lower:
+                    words[i] = acronym
+            normalized = ' '.join(words)
+    
+    # Specific class name normalizations based on model classes
+    # Use lowercase keys for case-insensitive matching
+    replacements_lower = {
+        # Tower classes
+        'mobile tower': 'Mobile Tower',
+        'small tower': 'Small Tower',
+        'tower base': 'Tower Base',
+        'tower': 'Tower',
+        'tower lattice': 'Tower Lattice',
+        'tower tucohy': 'Tower Tucohy',
+        'tower wooden': 'Tower Wooden',
+        
+        # Antenna classes
+        'gsm antenna': 'GSM Antenna',
+        'microwave antenna': 'Microwave Antenna',
+        'panel antenna': 'Panel Antenna',
+        'dirty antenna': 'Dirty Antenna',
+        'antenna': 'Antenna',
+        'antenna - damaged': 'Antenna - Damaged',
+        'antenna - not damaged': 'Antenna - Not Damaged',
+        
+        # Equipment classes
+        'bts': 'BTS',
+        'control box': 'Control Box',
+        'generator': 'Generator',
+        'solar panel': 'Solar Panel',
+        'microwave dish': 'Microwave Dish',
+        'remote radio unit': 'Remote Radio Unit',
+        
+        # Damage/condition classes
+        'discoloration': 'Discoloration',
+        'surface damage': 'Surface Damage',
+        'corrosion': 'Corrosion',
+        'dirty equipment': 'Dirty Equipment',
+        'rusty mounts and bolts': 'Rusty Mounts and Bolts',
+        'rusty bolts': 'Rusty Bolts',
+        'rusty rod and bolts': 'Rusty Rod and Bolts',
+        'break': 'Break',
+        'thunderbolt': 'Thunderbolt',
+        'wear': 'Wear',
+        'loose': 'Loose',
+        'twist': 'Twist',
+        'uneven': 'Uneven',
+        
+        # Cable classes
+        'shielded information cable': 'Shielded Information Cable',
+        'information cable': 'Information Cable',
+        'cable': 'Cable',
+        'wire': 'Wire',
+        
+        # Other classes
+        'nest': 'Nest',
+        'joint': 'Joint',
+        'side': 'Side',
+        'head': 'Head',
+        'anchor': 'Anchor',
+        'gasket': 'Gasket',
+        'void': 'Void',
     }
-    return replacements.get(normalized, normalized)
+    
+    # Check case-insensitive match
+    if cleaned_lower in replacements_lower:
+        return replacements_lower[cleaned_lower]
+    
+    # Default: return properly formatted version with acronyms preserved
+    return normalized
 
 def maybe_require_api_key():
     """Enforce API key if configured via env. No-op if API_KEY not set."""
