@@ -119,19 +119,29 @@ def normalize_class_name(name):
     cleaned = cleaned.replace('_', ' ')
     cleaned = ' '.join(cleaned.split())  # Collapse spaces again
     
+    # Convert to lowercase for matching (before title case)
+    cleaned_lower = cleaned.lower()
+    
     # Handle special cases with dashes and spaces
     # Normalize "antenna - Damaged" to "Antenna - Damaged" etc.
     if ' - ' in cleaned:
         parts = cleaned.split(' - ')
         cleaned = ' - '.join(part.strip() for part in parts)
     
-    # Handle hyphenated words (like "surface-damage")
+    # Handle hyphenated words (like "surface-damage", "unbundle-cautious")
+    # Keep hyphens for compound words but normalize spacing for others
     if '-' in cleaned and ' - ' not in cleaned:
-        # Replace single hyphens with spaces for better formatting
-        cleaned = cleaned.replace('-', ' ')
-        cleaned = ' '.join(cleaned.split())
+        # For certain compound words, keep the hyphen (check before processing)
+        compound_words = ['unbundle-cautious', 'unbundle-low', 'surface-damage']
+        cleaned_lower_temp = cleaned.lower().strip()
+        is_compound = any(comp == cleaned_lower_temp or comp in cleaned_lower_temp for comp in compound_words)
+        
+        if not is_compound:
+            # Replace single hyphens with spaces for better formatting
+            cleaned = cleaned.replace('-', ' ')
+            cleaned = ' '.join(cleaned.split())
     
-    # Convert to lowercase first for consistent processing
+    # Update cleaned_lower after all cleaning
     cleaned_lower = cleaned.lower()
     
     # Title-case but preserve acronyms and special formatting
@@ -151,7 +161,7 @@ def normalize_class_name(name):
                     words[i] = acronym
             normalized = ' '.join(words)
     
-    # Specific class name normalizations based on model classes
+    # Specific class name normalizations based on model classes (49 classes total)
     # Use lowercase keys for case-insensitive matching
     replacements_lower = {
         # Tower classes
@@ -160,14 +170,21 @@ def normalize_class_name(name):
         'tower base': 'Tower Base',
         'tower': 'Tower',
         'tower lattice': 'Tower Lattice',
+        'tower_lattice': 'Tower Lattice',
         'tower tucohy': 'Tower Tucohy',
+        'tower_tucohy': 'Tower Tucohy',
         'tower wooden': 'Tower Wooden',
+        'tower_wooden': 'Tower Wooden',
         
         # Antenna classes
         'gsm antenna': 'GSM Antenna',
+        'gsm_antenna': 'GSM Antenna',
         'microwave antenna': 'Microwave Antenna',
+        'microwave_antenna': 'Microwave Antenna',
         'panel antenna': 'Panel Antenna',
+        'panel_antenna': 'Panel Antenna',
         'dirty antenna': 'Dirty Antenna',
+        ' dirty antenna': 'Dirty Antenna',
         'antenna': 'Antenna',
         'antenna - damaged': 'Antenna - Damaged',
         'antenna - not damaged': 'Antenna - Not Damaged',
@@ -179,14 +196,18 @@ def normalize_class_name(name):
         'solar panel': 'Solar Panel',
         'microwave dish': 'Microwave Dish',
         'remote radio unit': 'Remote Radio Unit',
+        'lt': 'LT',
         
         # Damage/condition classes
         'discoloration': 'Discoloration',
         'surface damage': 'Surface Damage',
+        'surface-damage': 'Surface-Damage',
         'corrosion': 'Corrosion',
         'dirty equipment': 'Dirty Equipment',
         'rusty mounts and bolts': 'Rusty Mounts and Bolts',
+        ' rusty mounts and bolts': 'Rusty Mounts and Bolts',
         'rusty bolts': 'Rusty Bolts',
+        ' rusty bolts': 'Rusty Bolts',
         'rusty rod and bolts': 'Rusty Rod and Bolts',
         'break': 'Break',
         'thunderbolt': 'Thunderbolt',
@@ -194,6 +215,8 @@ def normalize_class_name(name):
         'loose': 'Loose',
         'twist': 'Twist',
         'uneven': 'Uneven',
+        'unbundle-cautious': 'Unbundle-Cautious',
+        'unbundle-low': 'Unbundle-Low',
         
         # Cable classes
         'shielded information cable': 'Shielded Information Cable',
@@ -252,7 +275,7 @@ def run_inference(image):
         
         # Run inference with fixed optimal YOLO parameters
         results = model(image, 
-                       conf=0.20,    # Fixed confidence threshold: 0.20
+                       conf=0.10,    # Fixed confidence threshold: 0.10 (lowered for more detections)
                        iou=0.50,     # Fixed IoU threshold: 0.50
                        max_det=300)  # Fixed max detections: 300
         
@@ -275,7 +298,7 @@ def run_inference(image):
                     # Additional confidence filtering for antenna classes (dynamic based on model)
                     if hasattr(model, 'names') and model.names:
                         class_name_lower = model.names[class_id].lower()
-                        if 'antenna' in class_name_lower and confidence < 0.18:
+                        if 'antenna' in class_name_lower and confidence < 0.10:
                             continue
                     
                     # Validate class_id and get class name
@@ -325,7 +348,7 @@ def filter_false_positives(detections):
             continue
             
         # Filter out very low confidence antenna detections (adjusted for new range)
-        if 'antenna' in class_name.lower() and confidence < 0.18:
+        if 'antenna' in class_name.lower() and confidence < 0.10:
             continue
             
         # Filter out detections that are too close to image edges (often false positives)
@@ -333,7 +356,7 @@ def filter_false_positives(detections):
             continue
             
         # Additional filtering for very low confidence detections
-        if confidence < 0.16:  # Absolute minimum confidence
+        if confidence < 0.08:  # Absolute minimum confidence (lowered for more detections)
             continue
             
         filtered_detections.append(detection)
